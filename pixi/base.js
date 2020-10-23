@@ -14,7 +14,7 @@ async function init() {
     appRef = app
 
     app.renderer.backgroundColor = 0x061639;
-    console.log(app.view.classList.add("integer_zoom"))
+    app.view.classList.add("integer_zoom")
 
     let farTex = getTexture("resources/test_bg.png")
     far = new PIXI.Sprite(farTex);
@@ -42,9 +42,12 @@ async function init() {
     init_players()
 
     actionply = new Player(ply, static_setzer)
+    actionply.setHome(20,150)
 
     while(true){
-        await actionply.playAnimation("swipe.sword")
+        actionply.sprite.arcTo(100,120,30)
+        await actionply.playAnimation("attack.sword")
+        await actionply.playAnimation("walk")
     }
 }
 
@@ -92,6 +95,13 @@ class Player {
         this.sprite = sprite;
         this.staticPlayer = staticPlayer;
     }
+    setHome(x,y){
+        this.homeX = x
+        this.homeY = y
+    }
+    arcHome(){
+        this.sprite.arcTo(this.homeX,this.homeY,20)
+    }
     async playAnimation(animationName){
         this.TEMP = {}
         this.TEMP.poseSequence = [...this.staticPlayer.poseSequences[animationName]]
@@ -107,7 +117,7 @@ class Player {
             if(this.TEMP.poppedPose.function != undefined){
                 this.TEMP.poppedPose.function.call(this)
             }
-            await sleep(this.TEMP.poppedPose.nframes*1000/30);
+            await sleep(this.TEMP.poppedPose.nframes*1000/60);
         }
         delete this.TEMP
     }
@@ -130,6 +140,30 @@ PIXI.ObservablePoint.prototype.set = function(pos) {
 PIXI.ObservablePoint.prototype.setf = function(x,y) {
     this.x = x
     this.y = y
+}
+PIXI.Sprite.prototype.arcTo = async function(newX,newY,nframes) {
+    let oldX = this.position.x
+    let oldY = this.position.y
+    let p = newX-oldX
+    let q = newY-oldY
+    let h = Math.min(newY-10,oldY-10)-oldY
+
+    let b = -2*(h*p+Math.sqrt((h**2)*(p**2)-h*(p**2)*q))/q
+    let a = -4*h/b**2
+
+    let t = 0.0
+    while(t < nframes){
+        let x = (p*(t/nframes))
+        let y = a*x*(x+b)
+        this.setpos(oldX+x,oldY+y)
+        t++
+        await sleep(1000/60);  
+    }
+    this.setpos(newX,newY);
+    // y(x) = a(x²+bx)
+    // dY = a((Dx)²+bDx)
+    // dy/a = (Dx)²+bDx
+    // dy/a-(Dx)² = b
 }
 
 Player.prototype.slashSword = async function() {
@@ -182,14 +216,13 @@ function init_players(){
     });
     static_setzer.addAnimation("attack.sword",[
         new TimedPose(6,{pose:new PoseKey("side.land")}),
-        new TimedPose(6,{pose:new PoseKey("side.move")}),
-        new TimedPose(20,{pose:new PoseKey("side.jump")}),
-        new TimedPose(6,{pose:new PoseKey("side.move")}),
-        new TimedPose(6,{pose:new PoseKey("side.fall")}),
+        new TimedPose(12,{pose:new PoseKey("side.move")}),
+        new TimedPose(12,{pose:new PoseKey("side.fall")}),
         new TimedPose(6,{pose:new PoseKey("side.land")}),
+        new TimedPose(0,{function:Player.prototype.slashSword}),
         new TimedPose(20,{pose:new PoseKey("side.dash"), function:Player.prototype.slashSword}),
         new TimedPose(6,{pose:new PoseKey("side.move")}),
-        new TimedPose(6,{pose:new PoseKey("side.jump")}),
+        new TimedPose(20,{function:Player.prototype.arcHome}),
         new TimedPose(20,{pose:new PoseKey("side")})
     ]);
     static_setzer.addAnimation("swipe.sword",[

@@ -154,16 +154,15 @@ Player.prototype.slashItem = async function(item){
 
     appRef.stage.addChild(item);
 
-    while (sword.angle > 60) {
+    while (item.angle > 10) {
+        if(item.angle > 200 && item.angle < 330){
+            scale = Math.min(scale+0.2,1)
+        } else {
+            scale = Math.max(scale-0.2,0)
+        }
         item.scale.setf(scale,scale);
-        scale = Math.min(scale+0.4,1)
-        item.angle = (item.angle+15)%360
-        await sleep(1000/30);        
-    }
-    while (scale > 0.2) {
-        scale=Math.max(0,scale-0.4)
-        item.scale.setf(scale,scale);
-        await sleep(1000/30);        
+        item.angle = (item.angle+10)%360
+        await sleep(1000/60);        
     }
     appRef.stage.removeChild(item)
 }

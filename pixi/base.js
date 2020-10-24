@@ -1,61 +1,233 @@
 async function init() {
     console.log("init() successfully called.");	
-    console.log(PIXI.Sprite)
 
     let app = new PIXI.Application({ 
-        width: 256,         // default: 800
+        width: 200,         // default: 800
         height: 200,        // default: 600
         antialias: false,    // default: false
         transparent: false, // default: false
         resolution: 1       // default: 1
       }
     );
-
-    appRef = app
+    appref = app
 
     app.renderer.backgroundColor = 0x061639;
-    app.view.classList.add("integer_zoom")
+    app.view.classList.add("noblur")
+    app.view.style.width = "800px"
+    app.view.style.height = "800px"
 
     let farTex = getTexture("resources/test_bg.png")
     far = new PIXI.Sprite(farTex);
-    far.setpos(0,-100);
+    far.setpos(-90,-120);
+    far.zindex = -1
     app.stage.addChild(far);
     
     let plyTex = getTexture("resources/characters/setzer/side.png")
-    ply = new PIXI.Sprite(plyTex);
-    ply.setpos(20,150);
-    ply.scale.x = -1
-    app.stage.addChild(ply);
+    plySprite = new PIXI.Sprite(plyTex);
+    plySprite.setpos(30,150);
+    plySprite.scale.x = -1
+    app.stage.addChild(plySprite);
     
     let enemyTex = getTexture("resources/test_enemy.png")
     enemy = new PIXI.Sprite(enemyTex);
-    enemy.setpos(150,150);
+    enemy.setpos(140,100);
     app.stage.addChild(enemy);
-
+    enemy2 = new PIXI.Sprite(enemyTex);
+    enemy2.setpos(160,140);
+    app.stage.addChild(enemy2);
+    
+    enemy.interactive = true
+    enemy.on("mouseover", addHover).on("mouseout", removeHover)
+    enemy2.interactive = true
+    enemy2.on("mouseover", addHover).on("mouseout", removeHover)
 
     document.body.appendChild(app.view);
 
     await sleep(1000);
 
-    enemy.setpos(100,100);
-
+    plySprite.interactive = true
+    plySprite
+        .on('mousedown', onDownPlayer)
+        .on('touchstart', onDownPlayer)
+        .on('mouseup', onUpPlayer)
+        .on('mouseupoutside', onUpPlayer)
+        .on('touchend', onUpPlayer)
+        .on('touchendoutside', onUpPlayer)
+        .on('mousemove', onDragMovePlayer)
+        .on('touchmove', onDragMovePlayer)
+    
     init_players()
 
-    actionply = new Player(ply, static_setzer)
-    actionply.setHome(20,150)
+    ply = new Player(plySprite, static_setzer)
+    ply.setHome(30,150)
 
-    while(true){
+    //ply.sprite.arcTo(100,120,30)
+    //await ply.playAnimation("walk")
+    //await ply.playAnimation("attack.sword")
+    
+    /*while(true){
         actionply.sprite.arcTo(100,120,30)
         await actionply.playAnimation("attack.sword")
         await actionply.playAnimation("walk")
-    }
+
+        actionply.sprite.arcTo(150,120,30)
+        await actionply.playAnimation("attack.sword")
+        await actionply.playAnimation("walk")
+    }*/
 }
 
-appRef = undefined;
+color = {
+    selectorTop: 0xbc3e44,
+    selectorBack: 0x510f20
+}
+layers = {}
+
+hoverObjects = []
+clickedObject = undefined
+selectedObject = undefined
+
+function addHover() {
+    hoverObjects.push(this)
+}
+function removeHover() {
+    let index = hoverObjects.indexOf(this);
+    if(index !== -1) {
+        hoverObjects.splice(index, 1);
+    }
+}
+function onDownPlayer (eventData) {   
+    if(this.WXPlayerParent == undefined){
+
+    } else {
+        console.log("CLICKED");
+        let ply = this.WXPlayerParent
+        ply.selector = new Selector(new PIXI.Graphics())
+        let ringSprite = ply.selector.originGfx
+
+        selectedObject = ringSprite
+        clickedObject = ply
+
+        let plyW = ply.sprite.width
+        let plyH = ply.sprite.height
+
+        ply.sprite.drawSelectorRing(ringSprite)
+
+        appref.stage.addChild(ringSprite);
+    }
+}
+async function onUpPlayer (event) {
+    if(!(clickedObject instanceof Player)) return;
+
+    let ringSprite = this.WXPlayerParent.selector.originGfx
+    let lineSprite = this.WXPlayerParent.selector.line
+    appref.stage.removeChild(lineSprite)
+    appref.stage.removeChild(ringSprite)
+    console.log("DROPPED");
+    
+    if(/*doattack*/ hoverObjects.length > 0){
+        desinationFoot = hoverObjects[0].getFootPosition()
+
+        size = clickedObject.sprite.getRealSize()
+        destX = desinationFoot.x-size.width
+        destY = desinationFoot.y-size.height+2
+
+        clickedObject.sprite.arcTo(destX, destY, 30)
+        await clickedObject.playAnimation("attack.sword")
+    }
+
+    hoverObjects = []
+    selectedObject = undefined
+    clickedObject = undefined
+}
+function onDragMovePlayer(event) {
+    if(clickedObject == undefined) return;
+    if(!(clickedObject instanceof Player)) return;
+    
+    srcPos = clickedObject.sprite.position
+    mousePos = event.data.global //bad syntax but gets mouse location
+
+    if(clickedObject.selector.line == undefined){        
+        clickedObject.selector.line = new PIXI.Graphics()
+        appref.stage.addChild(clickedObject.selector.line)
+    }
+    let selectorLine = clickedObject.selector.line;
+    selectorLine.clear()
+
+    let destX = mousePos.x
+    let destY = mousePos.y
+
+    let footPosition = clickedObject.sprite.getFootPosition()
+    cx = footPosition.x
+    cy = footPosition.y
+
+    if(hoverObjects.length > 0){
+        //todo pick closet entity
+        hoverObjects[0].drawSelectorRing(selectorLine)
+        let footPosition = hoverObjects[0].getFootPosition()
+        destX = footPosition.x
+        destY = footPosition.y
+    }
+    
+    //let slope = (cy-destY)/(cx-destX)
+    //let radius = clickedObject.sprite.width/2
+    //desiredX = Math.sign(destX-srcPos.x)* radius/Math.sqrt(1+slope**2)
+    //selectorLine.moveTo(cx + desiredX, cy + slope*desiredX/2)
+
+    //selectorLine.lineStyle(3,color.selectorBack) 
+    //selectorLine.moveTo(cx + desiredX, cy + slope*desiredX/1.9)
+    //selectorLine.lineTo(cx,cy)
+
+    selectorLine.lineStyle(3,color.selectorTop) 
+    selectorLine.moveTo(cx, cy)
+    selectorLine.lineTo(destX,destY)
+
+    selectorLine.beginHole()
+    selectorLine.lineTo(destX,destY)
+    let radius = clickedObject.sprite.width/2
+    //selectorLine.drawEllipse(cx,cy,radius,radius/2)
+}
+
+PIXI.Sprite.prototype.getFootPosition = function(){
+    let center = this.getCenter()
+    let realSize = this.getRealSize()
+    let footX = center.x
+    let footY = center.y+realSize.height/2-(realSize.width)/6+1
+    return {x:footX, y:footY}
+}
+PIXI.Sprite.prototype.drawSelectorRing = function(selectorSprite){
+    let footPosition = this.getFootPosition()
+    let realSize = this.getRealSize()
+
+    let centerX = footPosition.x
+    let centerY = footPosition.y
+    let widthRadius = realSize.width/2+2
+    let heightRadius = widthRadius/2
+    //console.log([centerX, centerY])
+
+    selectorSprite.lineStyle(3,color.selectorBack)
+    selectorSprite.drawEllipse(centerX, centerY, widthRadius, heightRadius)
+    selectorSprite.lineStyle(3,color.selectorTop)
+    selectorSprite.drawEllipse(centerX, centerY-1, widthRadius, heightRadius)
+    selectorSprite.endFill()
+}
 
 PIXI.Sprite.prototype.setpos = function(nx,ny){
     this.x = nx;
     this.y = ny;
+}
+PIXI.Sprite.prototype.getCenter = function(){    
+    let centerX = this.position.x+this.scale.x*this.width/2
+    let centerY = this.position.y+this.scale.y*this.height/2
+    return {x:centerX, y:centerY}
+}
+PIXI.Sprite.prototype.getRealSize = function(){    
+    let realWidth = this.width+this.scale.x
+    let realHeight = this.height+this.scale.y
+    return {width:realWidth, height:realHeight}
+}
+
+function getSelectorRadius(sprite) {
+    return (sprite.width)/2+4
 }
 
 function getTexture(path){
@@ -64,6 +236,11 @@ function getTexture(path){
     return farTexture
 }
 
+class Selector{
+    constructor(graphics){
+        this.originGfx = graphics
+    }
+}
 class PoseKey {
     constructor(string) {
         this.name = string
@@ -76,6 +253,9 @@ class TimedPose {
         }
         if(args.function != undefined){
             this.function = args.function;
+        }
+        if(args.awaitFunction != undefined){
+            this.awaitFunction = args.awaitFunction;
         }
         this.nframes = frames;
     }    
@@ -93,9 +273,11 @@ class StaticPlayer {
 class Player {
     constructor(sprite, staticPlayer){
         this.sprite = sprite;
+        this.sprite.WXPlayerParent = this
         this.staticPlayer = staticPlayer;
     }
     setHome(x,y){
+        this.sprite.setpos(x,y)
         this.homeX = x
         this.homeY = y
     }
@@ -117,6 +299,9 @@ class Player {
             if(this.TEMP.poppedPose.function != undefined){
                 this.TEMP.poppedPose.function.call(this)
             }
+            if(this.TEMP.poppedPose.awaitFunction != undefined){
+                await this.TEMP.poppedPose.awaitFunction.call(this)
+            }
             await sleep(this.TEMP.poppedPose.nframes*1000/60);
         }
         delete this.TEMP
@@ -126,8 +311,6 @@ class Player {
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
-
-testSwordTex = getTexture("resources/test_sword.png")
 
 PIXI.ObservablePoint.prototype.add = function(pos) {
     this.x += pos.x
@@ -146,9 +329,14 @@ PIXI.Sprite.prototype.arcTo = async function(newX,newY,nframes) {
     let oldY = this.position.y
     let p = newX-oldX
     let q = newY-oldY
-    let h = Math.min(newY-10,oldY-10)-oldY
 
-    let b = -2*(h*p+Math.sqrt((h**2)*(p**2)-h*(p**2)*q))/q
+    let heightAboveBase = Math.max(10,Math.abs(p/4))
+    let h = Math.min(newY-heightAboveBase,oldY-heightAboveBase)-oldY
+
+    let root = Math.sqrt((h**2)*(p**2)-h*(p**2)*q)
+    let b1 = -2*(h*p+root)/q
+    let b2 = -2*(h*p-root)/q
+    let b = Math.abs(b1+p) < Math.abs(b2+p) ? b1 : b2
     let a = -4*h/b**2
 
     let t = 0.0
@@ -179,6 +367,7 @@ Player.prototype.slashSword = async function() {
     this.slashItem(sword3)
 }
 
+testSwordTex = getTexture("resources/test_sword.png")
 Player.prototype.slashItem = async function(item){
     parentSprite = this.sprite
     item.setpos(parentSprite.position.x-10,parentSprite.position.y+20);
@@ -186,7 +375,7 @@ Player.prototype.slashItem = async function(item){
     let scale = 0;
     item.scale.setf(scale,scale);
 
-    appRef.stage.addChild(item);
+    appref.stage.addChild(item);
 
     while (item.angle > 10) {
         if(item.angle > 200 && item.angle < 330){
@@ -198,7 +387,7 @@ Player.prototype.slashItem = async function(item){
         item.angle = (item.angle+10)%360
         await sleep(1000/60);        
     }
-    appRef.stage.removeChild(item)
+    appref.stage.removeChild(item)
 }
 
 
@@ -215,12 +404,10 @@ function init_players(){
         "side.dash":getTexture("resources/characters/setzer/side_dash.png")
     });
     static_setzer.addAnimation("attack.sword",[
-        new TimedPose(6,{pose:new PoseKey("side.land")}),
         new TimedPose(12,{pose:new PoseKey("side.move")}),
         new TimedPose(12,{pose:new PoseKey("side.fall")}),
-        new TimedPose(6,{pose:new PoseKey("side.land")}),
-        new TimedPose(0,{function:Player.prototype.slashSword}),
-        new TimedPose(20,{pose:new PoseKey("side.dash"), function:Player.prototype.slashSword}),
+        new TimedPose(10,{pose:new PoseKey("side.land")}),
+        new TimedPose(16,{pose:new PoseKey("side.dash"), awaitFunction:Player.prototype.slashSword}),
         new TimedPose(6,{pose:new PoseKey("side.move")}),
         new TimedPose(20,{function:Player.prototype.arcHome}),
         new TimedPose(20,{pose:new PoseKey("side")})

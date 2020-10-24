@@ -1,8 +1,3 @@
-.integer_zoom {  
-  zoom: var(--zoom); 
+.noblur {
   image-rendering: pixelated;
-}
-
-:root  {
-  --zoom: 3;
 }

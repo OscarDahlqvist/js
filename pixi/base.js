@@ -26,37 +26,38 @@ async function init() {
     plySprite = new PIXI.Sprite(plyTex);
     plySprite.setpos(30,150);
     plySprite.scale.x = -1
-    app.stage.addChild(plySprite);
+    plySprite.spawnEntity()
     
     let enemyTex = getTexture("resources/test_enemy.png")
     enemy = new PIXI.Sprite(enemyTex);
     enemy.setpos(140,100);
-    app.stage.addChild(enemy);
+    enemy.spawnEntity()
     enemy2 = new PIXI.Sprite(enemyTex);
     enemy2.setpos(160,140);
-    app.stage.addChild(enemy2);
+    enemy2.spawnEntity();
     
-    enemy.interactive = true
-    enemy.on("mouseover", addHover).on("mouseout", removeHover)
-    enemy2.interactive = true
-    enemy2.on("mouseover", addHover).on("mouseout", removeHover)
+    //enemy.interactive = true
+    //enemy.on("mouseover", addHover).on("mouseout", removeHover)
+    //enemy2.interactive = true
+    //enemy2.on("mouseover", addHover).on("mouseout", removeHover)
 
     document.body.appendChild(app.view);
 
-    await sleep(1000);
-
-    plySprite.interactive = true
-    plySprite
-        .on('mousedown', onDownPlayer)
-        .on('touchstart', onDownPlayer)
-        .on('mouseup', onUpPlayer)
-        .on('mouseupoutside', onUpPlayer)
-        .on('touchend', onUpPlayer)
-        .on('touchendoutside', onUpPlayer)
-        .on('mousemove', onDragMovePlayer)
-        .on('touchmove', onDragMovePlayer)
+    
+    far.interactive = true
+    far
+        .on('mousedown', globalOnDown)
+        .on('touchstart', globalOnDown)
+        .on('mouseup', globalOnUp)
+        .on('mouseupoutside', globalOnUp)
+        .on('touchend', globalOnUp)
+        .on('touchendoutside', globalOnUp)
+        .on('mousemove', globalOnMove)
+        .on('touchmove', globalOnMove)
     
     init_players()
+
+    await sleep(1000);
 
     ply = new Player(plySprite, static_setzer)
     ply.setHome(30,150)
@@ -82,11 +83,16 @@ color = {
 }
 layers = {}
 
-hoverObjects = []
-clickedObject = undefined
-selectedObject = undefined
+targetableObjects = []
+onDownSelectedSprite = undefined
+onDownSelector = undefined
 
-function addHover() {
+
+//hoverObjects = []
+//clickedObject = undefined
+//selectedObject = undefined
+
+/*function addHover() {
     hoverObjects.push(this)
 }
 function removeHover() {
@@ -94,7 +100,7 @@ function removeHover() {
     if(index !== -1) {
         hoverObjects.splice(index, 1);
     }
-}
+}*/
 function onDownPlayer (eventData) {   
     if(this.WXPlayerParent == undefined){
 
@@ -102,23 +108,103 @@ function onDownPlayer (eventData) {
         console.log("CLICKED");
         let ply = this.WXPlayerParent
         ply.selector = new Selector(new PIXI.Graphics())
-        let ringSprite = ply.selector.originGfx
+        let ringSprite = ply.selector.sprite
 
         selectedObject = ringSprite
         clickedObject = ply
-
-        let plyW = ply.sprite.width
-        let plyH = ply.sprite.height
 
         ply.sprite.drawSelectorRing(ringSprite)
 
         appref.stage.addChild(ringSprite);
     }
 }
+async function globalOnDown(event) {
+    mousePos = event.data.global
+}
+async function globalOnUp(event) {
+    removeOnDownSelector()
+}
+async function globalOnMove(event) {
+    //console.log(event.data.button)
+    mousePos = event.data.global
+
+    if(event.data.buttons == 1){
+
+        let i = 0
+        closestFoot = getSpriteWithClosestFoot(targetableObjects, mousePos)
+
+        if(vecMagnitude(vecSub(closestFoot.getFootPosition(), mousePos)) < 1000 ) {
+            if(onDownSelector == undefined){
+                onDownSelectedSprite = closestFoot
+
+                onDownSelector = new Selector(new PIXI.Graphics())
+
+                let ringSprite = onDownSelector.sprite
+                onDownSelectedSprite.drawSelectorRing(ringSprite)
+                appref.stage.addChild(ringSprite);
+    
+                if(closestFoot.WXPlayerParent != undefined){
+                    console.log("selected Player")
+                } else {
+                    console.log("selected non Player")
+                }
+            }
+        } else { //no close object
+            console.log("far away object")
+        } 
+    }
+}
+
+function removeOnDownSelector(){
+    onDownSelectedSprite = undefined
+    if(onDownSelector != undefined) {
+        console.log("deleting selector ring")
+        appref.stage.removeChild(onDownSelector.sprite)
+        onDownSelector = undefined
+    }
+}
+
+function getSpriteWithClosestFoot(spriteArray, position){
+    closestSprite = spriteArray.reduce((a,b) => {
+        let pa = a.getFootPosition()
+        let pb = b.getFootPosition()
+
+        if(vecMagnitude(vecSub(pa, position)) < vecMagnitude(vecSub(pb, position))) {
+            return a
+        } else {
+            return b
+        }
+    }) 
+    return closestSprite
+}
+
+PIXI.Sprite.prototype.spawnEntity = function(args){
+    appref.stage.addChild(this)
+    targetableObjects.push(this)
+}
+PIXI.Sprite.prototype.removeEntity = function(args){
+    appref.stage.removeChild(this)
+    targetableObjects.removeElem(this)
+}
+Array.prototype.removeElem = function(elem){    
+    let index = this.indexOf(elem);
+    if(index !== -1) {
+        this.splice(elem, 1);
+    }
+}
+function vecSub(p1, p2) {
+    return {x:(p1.x-p2.x), y:(p1.y-p2.y)}
+}
+function vecScale(p, scale) {
+    return {x:p.x*scale, y:p.y*scale}
+}
+function vecMagnitude(p){
+    return p.x*p.x + p.y*p.y
+}
 async function onUpPlayer (event) {
     if(!(clickedObject instanceof Player)) return;
 
-    let ringSprite = this.WXPlayerParent.selector.originGfx
+    let ringSprite = this.WXPlayerParent.selector.sprite
     let lineSprite = this.WXPlayerParent.selector.line
     appref.stage.removeChild(lineSprite)
     appref.stage.removeChild(ringSprite)
@@ -238,7 +324,7 @@ function getTexture(path){
 
 class Selector{
     constructor(graphics){
-        this.originGfx = graphics
+        this.sprite = graphics
     }
 }
 class PoseKey {
@@ -404,12 +490,10 @@ function init_players(){
         "side.dash":getTexture("resources/characters/setzer/side_dash.png")
     });
     static_setzer.addAnimation("attack.sword",[
-        new TimedPose(12,{pose:new PoseKey("side.move")}),
-        new TimedPose(12,{pose:new PoseKey("side.fall")}),
-        new TimedPose(10,{pose:new PoseKey("side.land")}),
+        new TimedPose(16,{pose:new PoseKey("side.move")}),
+        new TimedPose(16,{pose:new PoseKey("side.fall")}),
         new TimedPose(16,{pose:new PoseKey("side.dash"), awaitFunction:Player.prototype.slashSword}),
-        new TimedPose(6,{pose:new PoseKey("side.move")}),
-        new TimedPose(20,{function:Player.prototype.arcHome}),
+        new TimedPose(6,{pose:new PoseKey("side.move"), function:Player.prototype.arcHome}),
         new TimedPose(20,{pose:new PoseKey("side")})
     ]);
     static_setzer.addAnimation("swipe.sword",[

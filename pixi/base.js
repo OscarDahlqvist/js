@@ -87,6 +87,8 @@ targetableObjects = []
 onDownSelectedSprite = undefined
 onDownSelector = undefined
 
+selectedObjects = []
+
 
 //hoverObjects = []
 //clickedObject = undefined
@@ -122,6 +124,12 @@ async function globalOnDown(event) {
     mousePos = event.data.global
 }
 async function globalOnUp(event) {
+    if(onDownSelectedSprite != undefined){
+        if(onDownSelectedSprite.WXPlayerParent != undefined){
+            console.log("dropped player")
+            onUpPlayer(event)
+        }
+    }
     removeOnDownSelector()
 }
 async function globalOnMove(event) {
@@ -134,6 +142,7 @@ async function globalOnMove(event) {
         closestFoot = getSpriteWithClosestFoot(targetableObjects, mousePos)
 
         if(vecMagnitude(vecSub(closestFoot.getFootPosition(), mousePos)) < 1000 ) {
+            //draw onDownSelector
             if(onDownSelector == undefined){
                 onDownSelectedSprite = closestFoot
 
@@ -142,15 +151,18 @@ async function globalOnMove(event) {
                 let ringSprite = onDownSelector.sprite
                 onDownSelectedSprite.drawSelectorRing(ringSprite)
                 appref.stage.addChild(ringSprite);
-    
-                if(closestFoot.WXPlayerParent != undefined){
-                    console.log("selected Player")
-                } else {
-                    console.log("selected non Player")
-                }
+            }            
+        }       
+
+        if(onDownSelectedSprite != undefined){
+            if(onDownSelectedSprite.WXPlayerParent != undefined){
+                console.log("Player is selected")
+                onDragMovePlayer(event)
+            } else {
+                console.log("Non Player is selected")
             }
         } else { //no close object
-            console.log("far away object")
+            console.log("nothing can be targeted")
         } 
     }
 }
@@ -201,57 +213,69 @@ function vecScale(p, scale) {
 function vecMagnitude(p){
     return p.x*p.x + p.y*p.y
 }
-async function onUpPlayer (event) {
-    if(!(clickedObject instanceof Player)) return;
+async function onUpPlayer(event) {
+    if(onDownSelectedSprite == undefined) return;
+    if(onDownSelectedSprite.WXPlayerParent == undefined) return;
 
-    let ringSprite = this.WXPlayerParent.selector.sprite
-    let lineSprite = this.WXPlayerParent.selector.line
+    let clickedPly = onDownSelectedSprite.WXPlayerParent
+
+    let lineSprite = clickedPly.selectorLine
+    clickedPly.selectorLine = undefined
     appref.stage.removeChild(lineSprite)
-    appref.stage.removeChild(ringSprite)
-    console.log("DROPPED");
-    
-    if(/*doattack*/ hoverObjects.length > 0){
-        desinationFoot = hoverObjects[0].getFootPosition()
 
-        size = clickedObject.sprite.getRealSize()
-        destX = desinationFoot.x-size.width
-        destY = desinationFoot.y-size.height+2
-
-        clickedObject.sprite.arcTo(destX, destY, 30)
-        await clickedObject.playAnimation("attack.sword")
+    if(clickedPly.targetSelector != undefined) {
+        appref.stage.removeChild(clickedPly.targetSelector.sprite)
+        delete clickedPly.targetSelector.sprite
+        clickedPly.targetSelector = undefined
     }
 
-    hoverObjects = []
-    selectedObject = undefined
-    clickedObject = undefined
+    let targetSprite = clickedPly.targetSprite
+    
+    if(targetSprite != undefined) {
+        destFootPos = targetSprite.getFootPosition()
+
+        size = clickedPly.sprite.getRealSize()
+        destX = destFootPos.x-size.width
+        destY = destFootPos.y-size.height+2
+
+        clickedPly.sprite.arcTo(destX, destY, 30)
+        await clickedPly.playAnimation("attack.sword")
+    }
 }
 function onDragMovePlayer(event) {
-    if(clickedObject == undefined) return;
-    if(!(clickedObject instanceof Player)) return;
+    if(onDownSelectedSprite == undefined) return;
+    if(onDownSelectedSprite.WXPlayerParent == undefined) return;
     
-    srcPos = clickedObject.sprite.position
+    srcPos = onDownSelectedSprite.position
     mousePos = event.data.global //bad syntax but gets mouse location
 
-    if(clickedObject.selector.line == undefined){        
-        clickedObject.selector.line = new PIXI.Graphics()
-        appref.stage.addChild(clickedObject.selector.line)
+    clickedPly = onDownSelectedSprite.WXPlayerParent
+
+    if(clickedPly.selectorLine == undefined){        
+        clickedPly.selectorLine = new PIXI.Graphics()
+        appref.stage.addChild(clickedPly.selectorLine)
     }
-    let selectorLine = clickedObject.selector.line;
+    let selectorLine = clickedPly.selectorLine;
     selectorLine.clear()
 
     let destX = mousePos.x
     let destY = mousePos.y
 
-    let footPosition = clickedObject.sprite.getFootPosition()
-    cx = footPosition.x
-    cy = footPosition.y
+    let footPosition = clickedPly.sprite.getFootPosition()
+    let cx = footPosition.x
+    let cy = footPosition.y
 
-    if(hoverObjects.length > 0){
-        //todo pick closet entity
-        hoverObjects[0].drawSelectorRing(selectorLine)
-        let footPosition = hoverObjects[0].getFootPosition()
-        destX = footPosition.x
-        destY = footPosition.y
+    if(targetableObjects.length > 0){
+        let closestSprite = getSpriteWithClosestFoot(targetableObjects, mousePos)
+
+        // make required distace small depnding on how far away from player target is / speed
+        if(vecMagnitude(vecSub(closestSprite.getFootPosition(), mousePos)) < 1000 ){
+            clickedPly.targetSprite = closestSprite
+
+            let destFootPosition = closestSprite.getFootPosition()
+            destX = destFootPosition.x
+            destY = destFootPosition.y
+        }
     }
     
     //let slope = (cy-destY)/(cx-destX)
@@ -267,9 +291,9 @@ function onDragMovePlayer(event) {
     selectorLine.moveTo(cx, cy)
     selectorLine.lineTo(destX,destY)
 
-    selectorLine.beginHole()
-    selectorLine.lineTo(destX,destY)
-    let radius = clickedObject.sprite.width/2
+    //selectorLine.beginHole()
+    //selectorLine.lineTo(destX,destY)
+    //let radius = clickedPly.sprite.width/2
     //selectorLine.drawEllipse(cx,cy,radius,radius/2)
 }
 

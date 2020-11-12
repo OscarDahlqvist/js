@@ -103,6 +103,7 @@ function removeHover() {
         hoverObjects.splice(index, 1);
     }
 }*/
+//todo, rename this as they are not called automatically
 function onDownPlayer (eventData) {   
     if(this.WXPlayerParent == undefined){
 

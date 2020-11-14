@@ -185,8 +185,12 @@ function vecSub(p1, p2) {
 function vecScale(p, scale) {
     return {x:p.x*scale, y:p.y*scale}
 }
+//todo, remove vecMagnitude with sqrt implementation or it'll be confusing
 function vecMagnitude(p){
     return p.x*p.x + p.y*p.y
+}
+function vecMagnitudeGreaterThan(p, cmp){
+    return ((p.x*p.x + p.y*p.y)>cmp*cmp)
 }
 //todo, rename this as they it not called automatically
 async function onUpPlayer(event) {

@@ -189,7 +189,7 @@ function vecScale(p, scale) {
 function vecMagnitude(p){
     return p.x*p.x + p.y*p.y
 }
-function vecMagnitudeGreaterThan(p, cmp){
+function isVecLongerThan(p, cmp){
     return ((p.x*p.x + p.y*p.y)>cmp*cmp)
 }
 //todo, rename this as they it not called automatically
@@ -277,6 +277,7 @@ function onDragMovePlayer(event) {
         }
     }
     
+	//TODO implement lines by drawing holes, this looks a bit tricksy in pixi
     //let slope = (cy-destY)/(cx-destX)
     //let radius = clickedObject.sprite.width/2
     //desiredX = Math.sign(destX-srcPos.x)* radius/Math.sqrt(1+slope**2)

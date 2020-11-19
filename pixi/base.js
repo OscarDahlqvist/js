@@ -81,6 +81,7 @@ color = {
     selectorTop: 0xbc3e44,
     selectorBack: 0x510f20
 }
+//Unused
 layers = {}
 
 targetableObjects = []
@@ -94,32 +95,6 @@ selectedObjects = []
 //clickedObject = undefined
 //selectedObject = undefined
 
-/*function addHover() {
-    hoverObjects.push(this)
-}
-function removeHover() {
-    let index = hoverObjects.indexOf(this);
-    if(index !== -1) {
-        hoverObjects.splice(index, 1);
-    }
-}*/
-function onDownPlayer (eventData) {   
-    if(this.WXPlayerParent == undefined){
-
-    } else {
-        console.log("CLICKED");
-        let ply = this.WXPlayerParent
-        ply.selector = new Selector(new PIXI.Graphics())
-        let ringSprite = ply.selector.sprite
-
-        selectedObject = ringSprite
-        clickedObject = ply
-
-        ply.sprite.drawSelectorRing(ringSprite)
-
-        appref.stage.addChild(ringSprite);
-    }
-}
 async function globalOnDown(event) {
     mousePos = event.data.global
 }
@@ -210,9 +185,14 @@ function vecSub(p1, p2) {
 function vecScale(p, scale) {
     return {x:p.x*scale, y:p.y*scale}
 }
+//todo, remove vecMagnitude with sqrt implementation or it'll be confusing
 function vecMagnitude(p){
     return p.x*p.x + p.y*p.y
 }
+function isVecLongerThan(p, cmp){
+    return ((p.x*p.x + p.y*p.y)>cmp*cmp)
+}
+//todo, rename this as they it not called automatically
 async function onUpPlayer(event) {
     if(onDownSelectedSprite == undefined) return;
     if(onDownSelectedSprite.WXPlayerParent == undefined) return;
@@ -242,6 +222,25 @@ async function onUpPlayer(event) {
         await clickedPly.playAnimation("attack.sword")
     }
 }
+//todo, rename this as they it not called automatically
+function onDownPlayer (eventData) {   
+    if(this.WXPlayerParent == undefined){
+
+    } else {
+        console.log("CLICKED");
+        let ply = this.WXPlayerParent
+        ply.selector = new Selector(new PIXI.Graphics())
+        let ringSprite = ply.selector.sprite
+
+        selectedObject = ringSprite
+        clickedObject = ply
+
+        ply.sprite.drawSelectorRing(ringSprite)
+
+        appref.stage.addChild(ringSprite);
+    }
+}
+//todo, rename this as they it not called automatically
 function onDragMovePlayer(event) {
     if(onDownSelectedSprite == undefined) return;
     if(onDownSelectedSprite.WXPlayerParent == undefined) return;
@@ -278,6 +277,7 @@ function onDragMovePlayer(event) {
         }
     }
     
+	//TODO implement lines by drawing holes, this looks a bit tricksy in pixi
     //let slope = (cy-destY)/(cx-destX)
     //let radius = clickedObject.sprite.width/2
     //desiredX = Math.sign(destX-srcPos.x)* radius/Math.sqrt(1+slope**2)
@@ -340,6 +340,7 @@ function getSelectorRadius(sprite) {
     return (sprite.width)/2+4
 }
 
+//todo, dont add already existing textures
 function getTexture(path){
     var farTexture = PIXI.Texture.from(path);
     farTexture.baseTexture.scaleMode = PIXI.SCALE_MODES.NEAREST;
